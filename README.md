@@ -189,7 +189,7 @@ For this purpose, the python module `nested_py` can be used also for compressed 
 Together with this file, also the files `nf_output_points.paramnames` and `nf_output_points.ranges` are created for the use of GetDist and Anesthetic python libraries.
 - `nf_output_cluster_mean_std.dat`: contains the number of clusters, number of point per clusters, and mean and standard deviations for each cluster (if the clustering option is activated).
 - `nf_output_cluster_max.dat`: contains the number of clusters, the maximum value of the likelihood and the corresponding parameter values (if the clustering option is activated).
-- `nf_energy.txt`: contains the volume and energy associated to the discarded and final live points. For a quantum potential, the decomposition of the energy between the avergaed potential and the replicas interaction is also given, as well as the temperature. Only created when exploring potentials.
+- `nf_output_energy.txt`: contains the volume and energy associated to the discarded and final live points. For a quantum potential, the decomposition of the energy between the avergaed potential and the replicas interaction is also given, as well as the temperature. Only created when exploring potentials.
 
 **Details of the input file line by line**
 
@@ -419,8 +419,9 @@ Examples of use of a legacy function can be found in `examples/data_analysis/aaa
 
 ## Present version and history of the past versions
 
-The present version is 5.6.2\
+The present version is 5.6.4\
 New features:
+- New function to visualizing the capacty heat for POTENTIAL calculations
 - Latex input support for compound variable names (i.e. x_{sub})
 - PyPI available development builds
 - PyPI binary distribution for arm64 macOS

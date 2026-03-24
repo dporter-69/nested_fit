@@ -67,19 +67,29 @@ class Analysis(object):
         if path[-1]!='/' and path != None:  path = path+'/'
         #
         self.path = path
-        # initialize flag for presence of point data
-        self.no_points = False
+        # initialize flag for presence of point data or energies
+        self.points_present = False
+        self.energies_present = False
         self.number_of_values = len(self.input_data['function']['params'])
-        # Check first if is there
-        if not os.path.isfile(path+'nf_output_points.txt'):
-            if os.path.isfile(path+'nf_output_points.txt.gz'):
-                with gzip.open(path+'nf_output_points.txt.gz', 'rb') as f_in:
-                    with open(path+'nf_output_points.txt', 'wb') as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-            else:
-                print('Result file nf_output_points.txt not present\n No data for statistics loaded, just input and output results')
-                self.no_points = True
-                #return None
+
+        # Check first if the points file 
+        if os.path.isfile(path+'nf_output_points.txt'):
+            self.points_present = True
+        elif os.path.isfile(path+'nf_output_points.txt.gz'):
+            with gzip.open(path+'nf_output_points.txt.gz', 'rb') as f_in:
+                with open(path+'nf_output_points.txt', 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            self.points_present = True
+        elif not os.path.isfile(path+'nf_output_points.txt') and not os.path.isfile(path+'nf_output_points.txt.gz'):
+            print('Result file nf_output_points.txt not present\n No data for statistics loaded')
+            self.points_present = False
+        
+        # Check if the energies file is present
+        if os.path.isfile(path+'nf_output_energy.txt'):
+            self.energies_present = True
+        else:
+            print('Result file nf_output_energy.txt not present\n No energies data loaded')
+            self.energies_present = False
             
         # self.par_names = [p[0] for p in self.input_data['parameters']]
         
@@ -90,10 +100,7 @@ class Analysis(object):
         f.close()
 
         # Read the points file and build the dataframe
-        if self.no_points:
-            self.df = None
-            print('No data points to load')
-        else:
+        if self.points_present:
             # pandas may raise an error if `delim_whitespace` is provided depending
             # on the version; use a regex sep and the python engine for safe
             # whitespace-separated parsing.
@@ -108,6 +115,26 @@ class Analysis(object):
             print('Available parameters :', list(self.df.columns))
             self.df.head()
             self.data = self.df.values
+
+        # Read the energies file and build the dataframe
+        if self.energies_present:
+            self.df_e = pd.read_csv(
+                path + 'nf_output_energy.txt',
+                sep=r"\s+",
+                engine='python',
+                header=0,
+                names=["density","energy"]
+            )
+            print(self.df_e.columns)
+            print('Available parameters:', list(self.df_e.columns))
+            print('Available energies:', self.df_e.shape[0])
+            self.df_e.head()
+            self.data_e = self.df_e.values
+        
+        if not self.points_present and not self.energies_present:
+            self.df = None
+            self.df_e = None
+            print('No data points or energies to load')
 
     # Program version TODO: (César) Allow backward compatibility here
     def check_version(self, version_float):
@@ -1478,6 +1505,78 @@ class Analysis(object):
         g = mcsamples.loadMCSamples(self.path+'/nf_output_points')
         return g.getCov()
 
+        #---------------------------------------------------------------------------------------------------------------------
+    
+    def part_func(self,path=currentpath,T=np.zeros(100)):
+        '''
+        Build the partition function, internal energy and heat
+        capacity from the sampled energies and 
+        the estimation of the density of states
+        BUT without considering the kinetic contribution.
+        The temperature is in Boltzmann units (i.e. T=1 corresponds to kT=1).
+
+        Return Z, U, Cv as function of the temperature T.
+        '''
+
+        
+        dos = np.exp(self.df_e['density'])
+        en = self.df_e['energy']
+
+        dim = T.shape[0]
+        Z = np.zeros(dim)
+        U = np.zeros(dim)
+        Cv = np.zeros(dim)
+
+        for i in range(dim):
+            Z[i] = np.sum(dos*np.exp(-en/T[i]))
+            U[i] = np.sum(dos*en*np.exp(-en/T[i]))/Z[i] # Internal energy <E>
+            en2 = np.sum(dos*en**2*np.exp(-en/T[i]))/Z[i] # <E^2>
+            Cv[i] = (en2 - U[i]**2)/T[i]**2 # Heat capacity Cv = ( <E^2> - <E>^2 )
+        return Z, U, Cv
+    
+        # --------------------------------------------------------------------------------------------------------------
+
+    def plot_Cv(self,path=currentpath,T_min=0.10,T_max=1,num_T=100,units=None,at_cluster=False,N=None):
+        '''
+        Plot the heat capacity as function of the temperature T.
+        The temperature is in Boltzmann units (i.e. T=1 corresponds to kT=1).
+        If "units='K'", the temperature is in kelvin and the Boltzmann constant is included in the partition function.
+    
+
+        If 'at_cluster=True', atomic clusters are considered and the kinetic contribution is included in the partition function.
+        '''
+        from numpy import linspace
+        import matplotlib.pyplot as plt
+
+        self.path = path
+
+        kb = 1.
+        if units == 'K':
+            kb = 1.380649e-23 # Boltzmann constant in J/K
+
+        T = linspace(T_min,T_max,num_T)
+
+        Z, U, Cv = self.part_func(path,T)
+        U = U*kb
+        Cv = Cv*kb
+
+        # Kinetic contribution for atomic clusters
+        if at_cluster: 
+            if N == None:
+                print("Please provide the number of atoms in the cluster to include the kinetic contribution")
+                return
+            Cv = Cv + 3*N/2*kb
+
+        plt.clf()
+        plt.plot(T,Cv)
+        if units == 'K':
+            plt.xlabel('Temperature (K)')
+        else:
+            plt.xlabel('Temperature (nat. units)')
+        plt.ylabel('Heat capacity')
+        plt.tight_layout()
+
+        plt.show()
 
 #########################################################################################################################################
 class Summary(object):

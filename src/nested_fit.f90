@@ -438,7 +438,7 @@ PROGRAM NESTED_FIT
   
   ! Writing option configuration
   CALL FIELD_FROM_INPUT_LOGICAL  (input_config, 'writing.statistics'  , write_statistics  , MANDATORY=.FALSE.) ! True by default
-  CALL FIELD_FROM_INPUT_LOGICAL  (input_config, 'writing.all_parameters'  , write_all_parameters  , MANDATORY=.FALSE.) ! True by default 
+  CALL FIELD_FROM_INPUT_LOGICAL  (input_config, 'writing.all_parameters'  , write_all_parameters  , MANDATORY=.FALSE.) ! True by default    
   IF((.NOT. write_all_parameters) .AND. hard_writing_parameters .AND. write_statistics) THEN
      CALL LOG_WARNING_HEADER()
      CALL LOG_WARNING('hard_writing_parameters and write_statistics are set to "True" while write_all_parameters is set to "False". This is not possible.')
@@ -451,7 +451,7 @@ PROGRAM NESTED_FIT
   CALL FIELD_FROM_INPUT_CHARACTER(input_config, 'lr'    , lr    , MANDATORY=.FALSE.) ! r by default
   CALL FIELD_FROM_INPUT_INTEGER  (input_config, 'npoint', npoint, MANDATORY=.FALSE.) ! 0 by default
   CALL FIELD_FROM_INPUT_INTEGER  (input_config, 'nwidth', nwidth, MANDATORY=.FALSE.) ! 0 by default
-  
+
   ! Function configuration inputs
   IF(is_set) THEN
      DO i = 1, nset
@@ -543,7 +543,7 @@ PROGRAM NESTED_FIT
     WRITE(23,*) '# birth_lnlike   rank'
   END IF
   ! If exploring a potential energy, create files to save weights and energy
-  IF(calc_mode.EQ.'POTENTIAL' .OR. calc_mode.EQ.'Q_POTENTIAL') OPEN(31,FILE='nf_energy.txt',STATUS= 'UNKNOWN')
+  IF(calc_mode.EQ.'POTENTIAL' .OR. calc_mode.EQ.'Q_POTENTIAL') OPEN(31,FILE='nf_output_energy.txt',STATUS= 'UNKNOWN')
   IF(calc_mode.EQ.'POTENTIAL') WRITE(31,*) '# log(deltaX)  E'
   IF(calc_mode.EQ.'Q_POTENTIAL') WRITE(31,*) '# log(deltaX)  E   V(averaged potential)   Q(replicas interaction)   T'
   !

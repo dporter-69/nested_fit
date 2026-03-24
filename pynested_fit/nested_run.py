@@ -419,9 +419,9 @@ class Configurator():
 
         self.logger = logging.getLogger("rich")
 
-        if not datafiles:
-            self.logger.error('Configurator needs at least one datafile.')
-            return None
+        # if not datafiles:
+        #     self.logger.error('Configurator needs at least one datafile.')
+        #     return None
 
         # Create the config file that will serve to write
         # the nf_input.yaml file
@@ -461,9 +461,10 @@ class Configurator():
         self._config['clustering']['parameter1'] = cluster_parameter1
         self._config['clustering']['parameter2'] = cluster_parameter2
 
-        # input file
-        self._config['specstr'] = specstr
-        self._config['filefmt'] = self._compute_filefmt(filefmt) # handle filefmt = 'auto' (python only)
+        # input data file
+        if calculation_mode == 'DATA':
+            self._config['specstr'] = specstr
+            self._config['filefmt'] = self._compute_filefmt(filefmt) # handle filefmt = 'auto' (python only)
 
         # likelihood
         self._config['likelihood'] = likelihood
@@ -497,18 +498,19 @@ class Configurator():
 
         # TODO: (César) This workload of finding out xrange should be offloaded to
         #               the nested_fit executable
-        input_delimiter = self._get_data_file_delimiter()
-        if self.multiexp:
-            for i, _ in enumerate(expressions):
-                self._df.append(pd.read_csv(self._config['datafiles'][i], delimiter=input_delimiter, header=None))
-                if self._find_kwarg(f'data_{i + 1}') is None:
-                    self._config[f'data_{i + 1}'] = {'xmin': 0, 'xmax': 0, 'ymin': 0, 'ymax': 0}
-                    self._reconfigure_data_extents(slot=(i + 1))
-        else:
-            self._df.append(pd.read_csv(self._config['datafiles'][0], delimiter=input_delimiter, header=None))
-            if self._find_kwarg('data') is None:
-                self._config['data'] = {'xmin': 0, 'xmax': 0, 'ymin': 0, 'ymax': 0}
-                self._reconfigure_data_extents(slot=0)
+        if calculation_mode == 'DATA':
+            input_delimiter = self._get_data_file_delimiter()
+            if self.multiexp:
+                for i, _ in enumerate(expressions):
+                    self._df.append(pd.read_csv(self._config['datafiles'][i], delimiter=input_delimiter, header=None))
+                    if self._find_kwarg(f'data_{i + 1}') is None:
+                        self._config[f'data_{i + 1}'] = {'xmin': 0, 'xmax': 0, 'ymin': 0, 'ymax': 0}
+                        self._reconfigure_data_extents(slot=(i + 1))
+            else:
+                self._df.append(pd.read_csv(self._config['datafiles'][0], delimiter=input_delimiter, header=None))
+                if self._find_kwarg('data') is None:
+                    self._config['data'] = {'xmin': 0, 'xmax': 0, 'ymin': 0, 'ymax': 0}
+                    self._reconfigure_data_extents(slot=0)
 
         self._keep_yaml = keep_yaml
 
@@ -803,14 +805,13 @@ class Configurator():
 
     def _write_yaml_file(self, path):
         # We want the datafiles as a string
-        datafiles = self._config['datafiles']
-        self._config['datafiles'] = ', '.join(datafiles)
+        if self._config['calculation_mode'] == 'DATA':
+            datafiles = self._config['datafiles']
+            self._config['datafiles'] = ', '.join(datafiles)
 
         with open(f'{path}/nf_input.yaml', 'w') as f:
             data = yaml.dump(self._config, width=10000)
             f.write(data)
-
-        self._config['datafiles'] = datafiles
 
     def _calculate_data_extents(self, slot=0):
         if self.multiexp:
