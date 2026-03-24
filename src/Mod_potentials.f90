@@ -10,7 +10,7 @@ MODULE MOD_POTENTIALS
   IMPLICIT NONE
   PUBLIC :: SELECT_LIKELIHOODFCN
 
-  REAL(8)    :: a_norm=0.
+  REAL(8)    :: a_norm=0., e_const = 0.
 
 CONTAINS
 
@@ -20,9 +20,9 @@ CONTAINS
     
     CALL LOG_TRACE('Initialization of func likelihood.')
 
-    !IF (funcname.eq.'TEST_ROSENBROCK') THEN
-    !   CALL INIT_ROSENBROCK()
-    !END IF
+    IF (funcname(1).eq.'ENERGY_LJ_3D_PBC_NORM') THEN
+      CALL INIT_ENERGY_LJ_3D_PBC_NORM()
+    END IF
     
     funcid = SELECT_LIKELIHOODFCN(funcname(1))
 
@@ -54,6 +54,8 @@ CONTAINS
         SELECT_LIKELIHOODFCN = 0
       ELSE IF(funcname.eq.'ENERGY_LJ_3D_PBC') THEN
         SELECT_LIKELIHOODFCN = 1
+      ELSE IF(funcname.eq.'ENERGY_LJ_3D_PBC_NORM') THEN
+        SELECT_LIKELIHOODFCN = 2
       ELSE
         ! SELECT_LIKELIHOODFCN = -1
         CALL LOG_ERROR_HEADER()
@@ -64,7 +66,7 @@ CONTAINS
       END IF
     ELSE IF(calc_mode.EQ.'Q_POTENTIAL') THEN
       IF(funcname.eq.'Q_ENERGY_HARM_3D') THEN
-        SELECT_LIKELIHOODFCN = 2
+        SELECT_LIKELIHOODFCN = 3
       ELSE
         ! SELECT_LIKELIHOODFCN = -1
         CALL LOG_ERROR_HEADER()
@@ -100,6 +102,8 @@ CONTAINS
     CASE (1)
        LOGLIKELIHOOD_POT = ENERGY_LJ_3D_PBC(npar, par)
     CASE (2)
+       LOGLIKELIHOOD_POT = ENERGY_LJ_3D_PBC_NORM(npar, par)
+    CASE (3)
        en_decomp = Q_ENERGY_HARM_3D(npar, par)
        LOGLIKELIHOOD_POT = -en_decomp(1)
     END SELECT
@@ -122,6 +126,8 @@ CONTAINS
     CASE (1)
        LOGLIKELIHOOD_POT_WRITE = (/-ENERGY_LJ_3D_PBC(npar, par), 0.d0, 0.d0, 0.d0/)
     CASE (2)
+       LOGLIKELIHOOD_POT_WRITE = (/-ENERGY_LJ_3D_PBC_NORM(npar, par), 0.d0, 0.d0, 0.d0/)
+    CASE (3)
        LOGLIKELIHOOD_POT_WRITE = Q_ENERGY_HARM_3D(npar, par)
     END SELECT
 
@@ -216,6 +222,55 @@ CONTAINS
 
     ENERGY_LJ_3D_PBC=-ener!*1./N
   END FUNCTION ENERGY_LJ_3D_PBC
+
+  !#####################################################################################################################   
+  SUBROUTINE INIT_ENERGY_LJ_3D_PBC_NORM()
+    ! Initialize the normalization constant for the LJ potential, which is the value of the potential at the minimum, i.e. -eps
+
+    REAL(8) :: r0, eps
+    REAL(8), PARAMETER :: r_max=3.
+    e_const = (1/r_max)**12-(1/r_max)**6
+    
+
+  END SUBROUTINE INIT_ENERGY_LJ_3D_PBC_NORM
+  
+  !--------------------------------------------------------------------------------------------------------------
+  
+  REAL(8) FUNCTION ENERGY_LJ_3D_PBC_NORM(npar, par)
+    !> The parameters are the positions of the points (...,x_i,y_i,z_i,....)
+    !> Potential of the form 4*eps*((rij/r0)**12-(rij/r0)**6) with rij=sqrt((x_i-x_j)**2+(y_i-y_j)**2+(z_i-z_j)**2) with periodic boundary conditions
+    !> now in a normalized box
+
+    INTEGER, INTENT(IN) :: npar
+    REAL(8), DIMENSION(:), INTENT(IN) :: par
+    REAL(8), PARAMETER :: pi=3.141592653589793d0
+    ! REAL(8), PARAMETER ::  eps=1.,r_max=3.
+    REAL(8), DIMENSION(npar-1) :: x     
+    INTEGER(4) :: N, i, j
+    REAL(8) :: rij, ener, r0, dx, dy, dz
+    
+    r0=par(1)
+    x = par(2:)
+    N=INT(npar/3)
+    
+    ener=0.
+    DO i=1,N
+      DO j=i+1,N
+        dx=x(i*3-2)-x(j*3-2)
+        dy=x(i*3-1)-x(j*3-1)
+        dz=x(i*3)-x(j*3)
+        dx=dx-NINT(dx)
+        dy=dy-NINT(dy)
+        dz=dz-NINT(dz)
+        rij=SQRT(dx**2+dy**2+dz**2)
+        IF(rij<=3*r0) ener=ener+4*((r0/rij)**12-(r0/rij)**6-e_const)
+      END DO    
+    END DO
+    
+    !ener=ener+0.5*k*(SUM(x(1:npar:2))**2+SUM(x(2:npar:2))**2)!/npar
+
+    ENERGY_LJ_3D_PBC_NORM=-ener!*1./N
+  END FUNCTION ENERGY_LJ_3D_PBC_NORM
   
   !##################################################################################################################### 
   FUNCTION Q_ENERGY_HARM_3D(npar, par)

@@ -1,0 +1,162 @@
+calculation_mode: POTENTIAL
+clustering:
+  enabled: false
+  method: k
+  parameter1: 0.5
+  parameter2: 0.2
+convergence:
+  accuracy: -10
+  method: ENERGY_MAX
+  parameter: 0.01
+datafiles: []
+function:
+  expression: ENERGY_LJ_3D_PBC_NORM
+  params:
+    r_0:
+      fixed: true
+      max: 3
+      min: -3
+      npar: 1
+      step: -1
+      value: 0.08333333
+    x_1:
+      max: 1
+      min: 0
+      npar: 2
+      step: -1
+      value: 0.0
+    x_2:
+      max: 1
+      min: 0
+      npar: 5
+      step: -1
+      value: 0.0
+    x_3:
+      max: 1
+      min: 0
+      npar: 8
+      step: -1
+      value: 0.0
+    x_4:
+      max: 1
+      min: 0
+      npar: 11
+      step: -1
+      value: 0.0
+    x_5:
+      max: 1
+      min: 0
+      npar: 14
+      step: -1
+      value: 0.0
+    x_6:
+      max: 1
+      min: 0
+      npar: 17
+      step: -1
+      value: 0.0
+    x_7:
+      max: 1
+      min: 0
+      npar: 20
+      step: -1
+      value: 0.0
+    y_1:
+      max: 1
+      min: 0
+      npar: 3
+      step: -1
+      value: 0.0
+    y_2:
+      max: 1
+      min: 0
+      npar: 6
+      step: -1
+      value: 0.0
+    y_3:
+      max: 1
+      min: 0
+      npar: 9
+      step: -1
+      value: 0.0
+    y_4:
+      max: 1
+      min: 0
+      npar: 12
+      step: -1
+      value: 0.0
+    y_5:
+      max: 1
+      min: 0
+      npar: 15
+      step: -1
+      value: 0.0
+    y_6:
+      max: 1
+      min: 0
+      npar: 18
+      step: -1
+      value: 0.0
+    y_7:
+      max: 1
+      min: 0
+      npar: 21
+      step: -1
+      value: 0.0
+    z_1:
+      max: 1
+      min: 0
+      npar: 4
+      step: -1
+      value: 0.0
+    z_2:
+      max: 1
+      min: 0
+      npar: 7
+      step: -1
+      value: 0.0
+    z_3:
+      max: 1
+      min: 0
+      npar: 10
+      step: -1
+      value: 0.0
+    z_4:
+      max: 1
+      min: 0
+      npar: 13
+      step: -1
+      value: 0.0
+    z_5:
+      max: 1
+      min: 0
+      npar: 16
+      step: -1
+      value: 0.0
+    z_6:
+      max: 1
+      min: 0
+      npar: 19
+      step: -1
+      value: 0.0
+    z_7:
+      max: 1
+      min: 0
+      npar: 22
+      step: -1
+      value: 0.0
+likelihood: GAUSSIAN
+search:
+  hard_writing: true
+  livepoints: 1000
+  max_steps: 100000
+  max_tries: 1000
+  method: SLICE_SAMPLING
+  num_tries: 1
+  param1: 0.5
+  param2: 3
+  tries_mult: 100
+version: 5.6
+writing:
+  all_parameters: true
+  statistics: true
