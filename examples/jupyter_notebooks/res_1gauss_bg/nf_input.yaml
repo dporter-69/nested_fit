@@ -14,30 +14,26 @@ data:
 datafiles: he-histo.dat
 filefmt: .tsv
 function:
-  expression: GAUSS_BG
+  expression: gauss_bg(x, A_1, x_1, s, b_g) = \texttt{GAUSS_IF}(x, x_1, A_1, s) + b_g
   params:
     A_1:
       max: 500
       min: 0
-      npar: 3
       step: -1
       value: 300
     b_g:
       max: 0.3
       min: 0
-      npar: 1
       step: -1
       value: 0.01
     s:
       max: 30
       min: 10
-      npar: 4
       step: -1
       value: 20
     x_1:
       max: 600
       min: 300
-      npar: 2
       step: -1
       value: 454.6
 likelihood: GAUSSIAN
