@@ -14,7 +14,6 @@ MODULE MOD_POTENTIALS
 
 CONTAINS
 
-
   SUBROUTINE INIT_LIKELIHOOD_POT()
     ! Initialize the normal likelihood with data files and special function
     
@@ -57,7 +56,7 @@ CONTAINS
       ELSE IF(funcname.eq.'ENERGY_LJ_3D_PBC_NORM') THEN
         SELECT_LIKELIHOODFCN = 2
       ELSE IF(funcname.eq.'ENERGY_LJ_2D_PBC_NORM') THEN
-        SELECT_LIKELIHOODFCN = 4
+        SELECT_LIKELIHOODFCN = 3
       ELSE
         ! SELECT_LIKELIHOODFCN = -1
         CALL LOG_ERROR_HEADER()
@@ -68,7 +67,15 @@ CONTAINS
       END IF
     ELSE IF(calc_mode.EQ.'Q_POTENTIAL') THEN
       IF(funcname.eq.'Q_ENERGY_HARM_3D') THEN
-        SELECT_LIKELIHOODFCN = 3
+        SELECT_LIKELIHOODFCN = 4
+      ELSE IF(funcname.eq.'Q_ENERGY_LJ_3D_PBC') THEN
+        SELECT_LIKELIHOODFCN = 5
+      ELSE IF(funcname.eq.'Q_ENERGY_LJ_3D_LP') THEN
+        SELECT_LIKELIHOODFCN = 6
+      ELSE IF(funcname.eq.'Q_ENERGY_LJ_2D_PBC') THEN
+        SELECT_LIKELIHOODFCN = 7
+      ELSE IF(funcname.eq.'Q_ENERGY_LJ_2D_LP') THEN
+        SELECT_LIKELIHOODFCN = 8
       ELSE
         ! SELECT_LIKELIHOODFCN = -1
         CALL LOG_ERROR_HEADER()
@@ -106,10 +113,22 @@ CONTAINS
     CASE (2)
        LOGLIKELIHOOD_POT = ENERGY_LJ_3D_PBC_NORM(npar, par)
     CASE (3)
+       LOGLIKELIHOOD_POT = ENERGY_LJ_2D_PBC_NORM(npar, par)
+    CASE (4)
        en_decomp = Q_ENERGY_HARM_3D(npar, par)
        LOGLIKELIHOOD_POT = -en_decomp(1)
-    CASE (4)
-       LOGLIKELIHOOD_POT = ENERGY_LJ_2D_PBC_NORM(npar, par)
+    CASE (5)
+       en_decomp = Q_ENERGY_LJ_3D_PBC(npar, par)
+       LOGLIKELIHOOD_POT = -en_decomp(1)
+    CASE (6)
+       en_decomp = Q_ENERGY_LJ_3D_LP(npar, par)
+       LOGLIKELIHOOD_POT = -en_decomp(1)
+    CASE (7)
+       en_decomp = Q_ENERGY_LJ_2D_PBC(npar, par)
+       LOGLIKELIHOOD_POT = -en_decomp(1)
+    CASE (8)
+       en_decomp = Q_ENERGY_LJ_2D_LP(npar, par)
+       LOGLIKELIHOOD_POT = -en_decomp(1)
     END SELECT
 
 
@@ -353,6 +372,250 @@ CONTAINS
     ener = V + harm
     Q_ENERGY_HARM_3D=(/ener,V,harm,tau/)
   END FUNCTION Q_ENERGY_HARM_3D
+
+  !#####################################################################################################################
+  
+  FUNCTION Q_ENERGY_LJ_3D_PBC(npar, par)
+    !> First parameters N (number of atoms), P (number of replicas), tau (temperature), m (mass of atoms), r0 (harmonic potential parameter) 
+    !> Parameters are in the order (x_11,y_11,z_11,...,x_1N,y_1N,z_1N,...,x_ij,y_ij,z_ij,...,x_P1,y_P1,z_P1,...,x_PN,y_PN,z_PN)
+    !> with 1<=i<=P, 1<=j<=N
+    !> hbar=1, k_b=1
+    
+    INTEGER, INTENT(IN) :: npar
+    REAL(8), DIMENSION(:), INTENT(IN) :: par
+    REAL(8), DIMENSION(4) :: Q_ENERGY_LJ_3D_PBC
+    REAL(8), PARAMETER :: pi=3.141592653589793d0
+    REAL(8) ::  eps=1
+    REAL(8), DIMENSION(SIZE(par)-5+3*INT(par(1))) :: x     
+    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj
+    REAL(8) :: rij, ener, r0, tau, m, rharm, dx, dy, dz, box_x, box_y, box_z, harm, V
+    
+    N=INT(par(1))
+    P=INT(par(2))
+    tau=par(3)
+    m=par(4)
+    r0=par(5)
+    x(:3*N*P) = par(6:)
+    x((3*N*P+1):)=par(6:(5+3*N))
+    box_x=par_bnd2(6)-par_bnd1(6)
+    box_y=par_bnd2(7)-par_bnd1(7)
+    box_z=par_bnd2(8)-par_bnd1(8)
+    
+    ener=0.
+    harm=0.
+    V=0.
+    DO k=1,P
+       DO i=1,N
+          ind_xi=(k-1)*3*N+(i-1)*3 !starting index for i
+          dx=x(ind_xi+1)-x(ind_xi+3*N+1)
+          dy=x(ind_xi+2)-x(ind_xi+3*N+2)
+          dz=x(ind_xi+3)-x(ind_xi+3*N+3)
+          rharm=dx**2+dy**2+dz**2 !harmonic interaction between neighbouring replicas
+          harm=harm+0.5*P*tau**2*m*rharm !0.5*P*tau**2*m*rharm
+          DO j=i+1,N
+             ind_xj=(k-1)*3*N+(j-1)*3 !starting index for j
+             dx=x(ind_xi+1)-x(ind_xj+1)
+             dy=x(ind_xi+2)-x(ind_xj+2)
+             dz=x(ind_xi+3)-x(ind_xj+3)
+             dx=dx-box_x*NINT(dx/box_x)
+             dy=dy-box_y*NINT(dy/box_y)
+             dz=dz-box_z*NINT(dz/box_z)
+             rij=SQRT(dx**2+dy**2+dz**2)
+             IF(rij<=3*r0) V=V+4./P*eps*((r0/rij)**12-(r0/rij)**6-(1./3.)**12+(1./3.)**6)     
+          END DO
+       END DO
+    END DO
+    ener = V + harm
+    
+    Q_ENERGY_LJ_3D_PBC=(/ener,V,harm,tau/)
+  END FUNCTION Q_ENERGY_LJ_3D_PBC
+  
+  FUNCTION Q_ENERGY_LJ_3D_LP(npar, par)
+    !> First parameters N (number of atoms), P (number of replicas), tau (temperature), m (mass of atoms), r0 (harmonic potential parameter) 
+    !> Parameters are in the order (x_11,y_11,z_11,...,x_1N,y_1N,z_1N,...,x_ij,y_ij,z_ij,...,x_P1,y_P1,z_P1,...,x_PN,y_PN,z_PN)
+    !> with 1<=i<=P, 1<=j<=N
+    !> hbar=1, k_b=1
+    
+    INTEGER, INTENT(IN) :: npar
+    REAL(8), DIMENSION(:), INTENT(IN) :: par
+    REAL(8), DIMENSION(4) :: Q_ENERGY_LJ_3D_LP
+    REAL(8), PARAMETER :: pi=3.141592653589793d0
+    REAL(8) ::  eps=1.
+    REAL(8), DIMENSION(SIZE(par)-5) :: x
+    REAL(8), DIMENSION(SIZE(par)-5+3*INT(par(1))) :: y
+    !REAL(8), DIMENSION(3*INT(par(1))) :: x_c     
+    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj
+    REAL(8) :: rij, ener, r0, tau, m, rharm, lambda_P2, dx, dy, dz, box_x, box_y, box_z, V, harm
+    
+    N = INT(par(1))
+    P = INT(par(2))
+    tau = 1/par(3) ! Attention: parameter used here is beta = 1/tau. Change if other parameter in input file
+    m = par(4)
+    r0 = par(5)
+    lambda_P2 = 1./(m*P*tau**2)
+    y(:(3*N*(P-1))) = par((6+3*N):) ! First P-1 beads
+    DO i=1,3*N
+       y(3*N*(P-1)+i) = -SUM(y(i:(3*N*(P-1)):(3*N))) ! Last bead
+    END DO
+    y((3*N*P+1):) = par((6+3*N):(5+2*3*N)) ! Add first bead at the end
+    DO i=1,P-1
+       x((3*N*(i-1)+1):(3*N*i)) = par(6:(5+3*N))+SQRT(lambda_P2)*par((6+3*N*i):(5+3*N*(i+1))) ! First P-1 beads
+    END DO
+    DO i=1,3*N
+       x(3*N*(P-1)+i) = par(5+i)-SQRT(lambda_P2)*SUM(par((5+3*N+i)::(3*N))) ! Last bead
+    END DO
+    box_x=par_bnd2(6)-par_bnd1(6)
+    box_y=par_bnd2(7)-par_bnd1(7)
+    box_z=par_bnd2(8)-par_bnd1(8)
+    
+    
+    ener=0.
+    harm=0.
+    V=0.
+    DO k=1,P
+       DO i=1,N
+          ind_xi=(k-1)*3*N+(i-1)*3 !starting index for i
+          dx=y(ind_xi+1)-y(ind_xi+3*N+1)
+          dy=y(ind_xi+2)-y(ind_xi+3*N+2)
+          dz=y(ind_xi+3)-y(ind_xi+3*N+3)
+          rharm=dx**2+dy**2+dz**2 !harmonic interaction between neighbouring replicas
+          harm=harm+0.5*rharm !0.5*P*tau**2*m*rharm
+          DO j=i+1,N
+             ind_xj=(k-1)*3*N+(j-1)*3 !starting index for j
+             dx=x(ind_xi+1)-x(ind_xj+1)
+             dy=x(ind_xi+2)-x(ind_xj+2)
+             dz=x(ind_xi+3)-x(ind_xj+3)
+             dx=dx-box_x*NINT(dx/box_x)
+             dy=dy-box_y*NINT(dy/box_y)
+             dz=dz-box_z*NINT(dz/box_z)
+             rij=SQRT(dx**2+dy**2+dz**2)
+             IF(rij<=3*r0) V=V+4./P*eps*((r0/rij)**12-(r0/rij)**6-(1./3.)**12+(1./3.)**6)
+             
+          END DO
+       END DO
+    END DO
+    ener = V + harm
+    
+    Q_ENERGY_LJ_3D_LP=(/ener,V,harm,tau/)
+  END FUNCTION Q_ENERGY_LJ_3D_LP
+
+  FUNCTION Q_ENERGY_LJ_2D_PBC(npar, par)
+    !> First parameters N (number of atoms), P (number of replicas), tau (temperature), m (mass of atoms), r0 (harmonic potential parameter) 
+    !> Parameters are in the order (x_11,y_11,...,x_1N,y_1N,...,x_ij,y_ij,...,x_P1,y_P1,...,x_PN,y_PN)
+    !> with 1<=i<=P, 1<=j<=N
+    !> hbar=1, k_b=1
+    
+    INTEGER, INTENT(IN) :: npar
+    REAL(8), DIMENSION(:), INTENT(IN) :: par
+    REAL(8), DIMENSION(4) :: Q_ENERGY_LJ_2D_PBC
+    REAL(8), PARAMETER :: pi=3.141592653589793d0
+    REAL(8) ::  eps=1
+    REAL(8), DIMENSION(SIZE(par)-5+2*INT(par(1))) :: x     
+    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj
+    REAL(8) :: rij, ener, r0, tau, m, rharm, dx, dy, box_x, box_y, harm, V
+    
+    N=INT(par(1))
+    P=INT(par(2))
+    tau=par(3)
+    m=par(4)
+    r0=par(5)
+    x(:2*N*P) = par(6:)
+    x((2*N*P+1):)=par(6:(5+2*N))
+    box_x=par_bnd2(6)-par_bnd1(6)
+    box_y=par_bnd2(7)-par_bnd1(7)
+    
+    ener=0.
+    harm=0.
+    V=0.
+    DO k=1,P
+       DO i=1,N
+          ind_xi=(k-1)*2*N+(i-1)*2 !starting index for i
+          dx=x(ind_xi+1)-x(ind_xi+3*N+1)
+          dy=x(ind_xi+2)-x(ind_xi+3*N+2)
+          rharm=dx**2+dy**2 !harmonic interaction between neighbouring replicas
+          harm=harm+0.5*P*tau**2*m*rharm !0.5*P*tau**2*m*rharm
+          DO j=i+1,N
+             ind_xj=(k-1)*2*N+(j-1)*2 !starting index for j
+             dx=x(ind_xi+1)-x(ind_xj+1)
+             dy=x(ind_xi+2)-x(ind_xj+2)
+             dx=dx-box_x*NINT(dx/box_x)
+             dy=dy-box_y*NINT(dy/box_y)
+             rij=SQRT(dx**2+dy**2)
+             IF(rij<=3*r0) V=V+4./P*eps*((r0/rij)**12-(r0/rij)**6-(1./3.)**12+(1./3.)**6)     
+          END DO
+       END DO
+    END DO
+    ener = V + harm
+    
+    Q_ENERGY_LJ_2D_PBC=(/ener,V,harm,tau/)
+  END FUNCTION Q_ENERGY_LJ_2D_PBC
+
+  FUNCTION Q_ENERGY_LJ_2D_LP(npar, par)
+    !> First parameters N (number of atoms), P (number of replicas), tau (temperature), m (mass of atoms), r0 (harmonic potential parameter) 
+    !> Parameters are in the order (x_11,y_11,...,x_1N,y_1N,...,x_ij,y_ij,...,x_P1,y_P1,...,x_PN,y_PN)
+    !> with 1<=i<=P, 1<=j<=N
+    !> hbar=1, k_b=1
+    
+    INTEGER, INTENT(IN) :: npar
+    REAL(8), DIMENSION(:), INTENT(IN) :: par
+    REAL(8), DIMENSION(4) :: Q_ENERGY_LJ_2D_LP
+    REAL(8), PARAMETER :: pi=3.141592653589793d0
+    REAL(8) ::  eps=1.
+    REAL(8), DIMENSION(SIZE(par)-5) :: x
+    REAL(8), DIMENSION(SIZE(par)-5+2*INT(par(1))) :: y
+    !REAL(8), DIMENSION(3*INT(par(1))) :: x_c     
+    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj
+    REAL(8) :: rij, ener, r0, tau, m, rharm, lambda_P2, dx, dy, box_x, box_y, V, harm
+    
+    N = INT(par(1))
+    P = INT(par(2))
+    tau = 1/par(3) ! Attention: parameter used here is beta = 1/tau. Change if other parameter in input file
+    m = par(4)
+    r0 = par(5)
+    lambda_P2 = 1./(m*P*tau**2)
+    y(:(2*N*(P-1))) = par((6+2*N):) ! First P-1 beads
+    DO i=1,2*N
+       y(2*N*(P-1)+i) = -SUM(y(i:(2*N*(P-1)):(2*N))) ! Last bead
+    END DO
+    y((2*N*P+1):) = par((6+2*N):(5+2*2*N)) ! Add first bead at the end
+    DO i=1,P-1
+       x((2*N*(i-1)+1):(2*N*i)) = par(6:(5+2*N))+SQRT(lambda_P2)*par((6+2*N*i):(5+2*N*(i+1))) ! First P-1 beads
+    END DO
+    DO i=1,2*N
+       x(2*N*(P-1)+i) = par(5+i)-SQRT(lambda_P2)*SUM(par((5+2*N+i)::(2*N))) ! Last bead
+    END DO
+    box_x=par_bnd2(6)-par_bnd1(6)
+    box_y=par_bnd2(7)-par_bnd1(7)
+    
+    
+    ener=0.
+    harm=0.
+    V=0.
+    DO k=1,P
+       DO i=1,N
+          ind_xi=(k-1)*2*N+(i-1)*2 !starting index for i
+          dx=y(ind_xi+1)-y(ind_xi+2*N+1)
+          dy=y(ind_xi+2)-y(ind_xi+2*N+2)
+          rharm=dx**2+dy**2 !harmonic interaction between neighbouring replicas
+          harm=harm+0.5*rharm !0.5*P*tau**2*m*rharm
+          DO j=i+1,N
+             ind_xj=(k-1)*2*N+(j-1)*2 !starting index for j
+             dx=x(ind_xi+1)-x(ind_xj+1)
+             dy=x(ind_xi+2)-x(ind_xj+2)
+             dx=dx-box_x*NINT(dx/box_x)
+             dy=dy-box_y*NINT(dy/box_y)
+             rij=SQRT(dx**2+dy**2)
+             IF(rij<=3*r0) V=V+4./P*eps*((r0/rij)**12-(r0/rij)**6-(1./3.)**12+(1./3.)**6)
+             
+          END DO
+       END DO
+    END DO
+    ener = V + harm
+    
+    Q_ENERGY_LJ_2D_LP=(/ener,V,harm,tau/)
+  END FUNCTION Q_ENERGY_LJ_2D_LP
+  
+  
 
 
 END MODULE MOD_POTENTIALS
