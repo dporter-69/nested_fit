@@ -644,7 +644,7 @@ CONTAINS
     REAL(8), DIMENSION(SIZE(par)-5) :: x
     REAL(8), DIMENSION(SIZE(par)-5+2*INT(par(1))) :: y
     !REAL(8), DIMENSION(3*INT(par(1))) :: x_c     
-    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj
+    INTEGER(4) :: N, i, j, P, k, ind_xi, ind_xj, first_coord
     REAL(8) :: rij, ener, r0, tau, nu, m, rharm, lambda_P2, dx, dy, box_x, box_y, V, harm
     
     N = INT(par(1))
@@ -658,20 +658,21 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     m = par(4)
     r0 = par(5)
+    first_coord = 7 ! npar of 1st coordinate
     lambda_P2 = 1./(m*P*tau**2)
-    y(:(2*N*(P-1))) = par((6+2*N):) ! First P-1 beads
+    y(:(2*N*(P-1))) = par((first_coord+2*N):) ! First P-1 beads
     DO i=1,2*N
        y(2*N*(P-1)+i) = -SUM(y(i:(2*N*(P-1)):(2*N))) ! Last bead
     END DO
-    y((2*N*P+1):) = par((6+2*N):(5+2*2*N)) ! Add first bead at the end
+    y((2*N*P+1):) = par((first_coord+2*N):(first_coord-1+2*2*N)) ! Add first bead at the end
     DO i=1,P-1
-       x((2*N*(i-1)+1):(2*N*i)) = par(6:(5+2*N))+SQRT(lambda_P2)*par((6+2*N*i):(5+2*N*(i+1))) ! First P-1 beads
+       x((2*N*(i-1)+1):(2*N*i)) = par(first_coord:(first_coord-1+2*N))+SQRT(lambda_P2)*par((first_coord+2*N*i):(first_coord-1+2*N*(i+1))) ! First P-1 beads
     END DO
     DO i=1,2*N
-       x(2*N*(P-1)+i) = par(5+i)-SQRT(lambda_P2)*SUM(par((5+2*N+i)::(2*N))) ! Last bead
+       x(2*N*(P-1)+i) = par(first_coord-1+i)-SQRT(lambda_P2)*SUM(par((first_coord-1+2*N+i)::(2*N))) ! Last bead
     END DO
-    box_x=par_bnd2(6)-par_bnd1(6)
-    box_y=par_bnd2(7)-par_bnd1(7)
+    box_x=par_bnd2(first_coord)-par_bnd1(first_coord)
+    box_y=par_bnd2(first_coord+1)-par_bnd1(first_coord+1)
     
     
     ener=0.
